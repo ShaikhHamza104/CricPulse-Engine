@@ -1,0 +1,14 @@
+services:
+  cricpulse-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cricpulse-engine
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - PORT=8000
+      - RATE_LIMIT_REQUESTS=100
+      - RATE_LIMIT_WINDOW_SECONDS=60
+    restart: unless-stopped
