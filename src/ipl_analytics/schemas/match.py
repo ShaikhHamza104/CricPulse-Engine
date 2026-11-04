@@ -65,19 +65,13 @@ class MatchDetail(MatchSummary):
 class MatchFilterParams(BaseModel):
     """Class for filtering Match query parameters."""
 
-    season: int | None = Field(
-        None, description="Season to filter matches (optional)"
-    )
-    team: str | None = Field(
-        None, description="Team name to filter matches (optional)"
-    )
+    season: int | None = Field(None, description="Season to filter matches (optional)")
+    team: str | None = Field(None, description="Team name to filter matches (optional)")
     venue: str | None = Field(
         None, description="Venue substring to filter matches (optional)"
     )
     city: str | None = Field(None, description="City to filter matches (optional)")
-    date: dt_date | None = Field(
-        None, description="Date to filter matches (optional)"
-    )
+    date: dt_date | None = Field(None, description="Date to filter matches (optional)")
     limit: int = Field(
         20, ge=1, le=100, description="Number of records to return (page size)"
     )

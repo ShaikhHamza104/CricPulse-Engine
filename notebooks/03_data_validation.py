@@ -152,8 +152,7 @@ def _(deliveries_df, mo):
     if has_wickets:
         wickets_count = deliveries_df["is_wicket"].sum()
         invalid_wickets = deliveries_df[
-            deliveries_df["is_wicket"]
-            & (deliveries_df["dismissal_kind"].isna())
+            deliveries_df["is_wicket"] & (deliveries_df["dismissal_kind"].isna())
         ]
         wickets_integrity_passed = len(invalid_wickets) == 0
     else:

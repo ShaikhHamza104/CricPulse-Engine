@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ipl_analytics.api.dependencies import get_analytics_repo
