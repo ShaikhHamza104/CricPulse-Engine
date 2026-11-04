@@ -1,6 +1,6 @@
-from typing import Optional, Self
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import Self
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Security & resilience config for analytics response models:
 # - extra="ignore": Strips unmodeled SQL columns so internal DB fields are never leaked
@@ -67,7 +67,7 @@ class HeadToHeadResponse(BaseModel):
         le=100.0,
         description="Win percentage of team1 against team2",
     )
-    win_percentage_team2: Optional[float] = Field(
+    win_percentage_team2: float | None = Field(
         default=None,
         ge=0.0,
         le=100.0,
@@ -79,9 +79,7 @@ class HeadToHeadResponse(BaseModel):
         if self.team1.casefold() == self.team2.casefold():
             raise ValueError("team1 and team2 must be two different teams.")
 
-        counted_matches = (
-            self.team1_wins + self.team2_wins + self.ties_or_no_result
-        )
+        counted_matches = self.team1_wins + self.team2_wins + self.ties_or_no_result
         if counted_matches != self.total_matches:
             raise ValueError(
                 f"Sum of outcomes ({counted_matches}) must equal "
@@ -89,12 +87,9 @@ class HeadToHeadResponse(BaseModel):
             )
 
         if self.total_matches == 0 and (
-            self.win_percentage_team1 > 0.0
-            or (self.win_percentage_team2 or 0.0) > 0.0
+            self.win_percentage_team1 > 0.0 or (self.win_percentage_team2 or 0.0) > 0.0
         ):
-            raise ValueError(
-                "Win percentages must be 0.0 when total_matches is 0."
-            )
+            raise ValueError("Win percentages must be 0.0 when total_matches is 0.")
 
         return self
 
@@ -134,9 +129,7 @@ class TossImpactResponse(BaseModel):
     @model_validator(mode="after")
     def validate_toss_invariants(self) -> Self:
         if self.toss_winner_match_wins > self.total_matches:
-            raise ValueError(
-                "toss_winner_match_wins cannot exceed total_matches."
-            )
+            raise ValueError("toss_winner_match_wins cannot exceed total_matches.")
 
         if (self.chose_field_count + self.chose_bat_count) > self.total_matches:
             raise ValueError(
@@ -162,7 +155,7 @@ class VenueStatsResponse(BaseModel):
         max_length=200,
         description="Name of the venue",
     )
-    city: Optional[str] = Field(
+    city: str | None = Field(
         default=None,
         min_length=1,
         max_length=100,
@@ -186,10 +179,7 @@ class VenueStatsResponse(BaseModel):
 
     @model_validator(mode="after")
     def validate_venue_invariants(self) -> Self:
-        if (
-            self.total_matches > 0
-            and self.avg_first_innings_score > self.highest_total
-        ):
+        if self.total_matches > 0 and self.avg_first_innings_score > self.highest_total:
             raise ValueError(
                 f"avg_first_innings_score ({self.avg_first_innings_score}) "
                 f"cannot exceed highest_total ({self.highest_total})."

@@ -1,7 +1,9 @@
-from typing import Any, Optional
+from typing import Any
+
 import duckdb
 
 from ipl_analytics.db.session import get_connection
+from ipl_analytics.pipelines.transform import TEAM_MAPPING, VENUE_MAPPING
 from ipl_analytics.schemas.analytics import (
     HeadToHeadResponse,
     TossImpactResponse,
@@ -16,22 +18,16 @@ from ipl_analytics.schemas.player import (
 class AnalyticsRepository:
     """Repository for IPL analytical aggregations and leaderboards in DuckDB."""
 
-    def __init__(
-        self, connection: Optional[duckdb.DuckDBPyConnection] = None
-    ) -> None:
+    def __init__(self, connection: duckdb.DuckDBPyConnection | None = None) -> None:
         self.con = (
-            connection
-            if connection is not None
-            else get_connection(read_only=True)
+            connection if connection is not None else get_connection(read_only=True)
         )
         self._delivery_cols = self._get_table_columns("clean_deliveries")
 
     def _get_table_columns(self, table_name: str) -> set[str]:
         """Inspect column names once to adapt safely to the ETL table schema."""
         try:
-            rows = self.con.execute(
-                f"PRAGMA table_info('{table_name}')"
-            ).fetchall()
+            rows = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchall()
             return {str(row[1]).lower() for row in rows}
         except Exception:
             return set()
@@ -44,12 +40,12 @@ class AnalyticsRepository:
         columns = [col[0] for col in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
-    def get_head_to_head(
-        self, team1: str, team2: str
-    ) -> HeadToHeadResponse:
-        """Compare two teams across all historical IPL matches."""
-        t1 = team1.strip()
-        t2 = team2.strip()
+    def get_head_to_head(self, team1: str, team2: str) -> HeadToHeadResponse:
+        """Compare two teams across all historical IPL matches, harmonizing franchise renamings."""
+        raw_t1 = team1.strip().lower()
+        raw_t2 = team2.strip().lower()
+        t1 = TEAM_MAPPING.get(raw_t1, raw_t1)
+        t2 = TEAM_MAPPING.get(raw_t2, raw_t2)
 
         query = """
             WITH h2h_matches AS (
@@ -130,86 +126,65 @@ class AnalyticsRepository:
         rows = self._fetch_dicts(self.con.execute(query))
         return TossImpactResponse.model_validate(rows[0])
 
-    def get_venue_stats(self, venue: str) -> Optional[VenueStatsResponse]:
-        """Calculate match and innings scoring statistics for a specific venue."""
-        clean_venue = venue.strip()
-        if not clean_venue:
+    def get_venue_stats(self, venue: str) -> VenueStatsResponse | None:
+        """Calculate match and innings scoring statistics for a specific venue.
+
+        Domain Rules Applied:
+        - Harmonizes historical venue name variations (e.g. Wankhede variations).
+        - Excludes Super Overs (COALESCE(is_super_over, 0) = 0).
+        - Averages 1st innings par score ONLY on completed/bowled-out innings
+          (>=19 overs or 10 wickets), preventing rain-shortened 5-over or washed-out
+          matches from corrupting the venue par score.
+        """
+        raw_venue = venue.strip().lower()
+        if not raw_venue:
             return None
 
-        # Use total_runs if available in clean_deliveries, else batter_runs + extra_runs, else batter_runs
-        if "total_runs" in self._delivery_cols:
-            runs_expr = "d.total_runs"
-        elif "extra_runs" in self._delivery_cols:
-            runs_expr = "(d.batter_runs + COALESCE(d.extra_runs, 0))"
-        else:
-            runs_expr = "d.batter_runs"
+        clean_venue = VENUE_MAPPING.get(raw_venue, raw_venue)
 
-        # Determine how innings are identified in clean_deliveries
-        if "inning" in self._delivery_cols:
-            inning_group_expr = "d.inning"
-            first_inning_filter = "WHERE inning_id = 1"
-        elif "innings" in self._delivery_cols:
-            inning_group_expr = "d.innings"
-            first_inning_filter = "WHERE inning_id = 1"
-        else:
-            # Fallback if only batting_team is present
-            inning_group_expr = "d.batting_team"
-            first_inning_filter = "WHERE inning_rank = 1"
-
-        over_col = "d.over_number" if "over_number" in self._delivery_cols else "d.over"
-
-        def _run_venue_query(where_sql: str, param: str) -> list[dict[str, Any]]:
-            query = f"""
-                WITH venue_matches AS (
-                    SELECT
-                        match_id,
-                        venue,
-                        city
-                    FROM clean_matches m
-                    WHERE {where_sql}
-                ),
-                innings_totals AS (
-                    SELECT
-                        vm.match_id,
-                        {inning_group_expr} AS inning_id,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY vm.match_id
-                            ORDER BY MIN({over_col}) ASC
-                        ) AS inning_rank,
-                        COALESCE(SUM({runs_expr}), 0) AS innings_score
-                    FROM venue_matches vm
-                    JOIN clean_deliveries d ON vm.match_id = d.match_id
-                    GROUP BY vm.match_id, {inning_group_expr}
-                )
+        query = """
+            WITH venue_matches AS (
                 SELECT
-                    (SELECT MODE(venue) FROM venue_matches) AS venue,
-                    (SELECT MODE(city) FROM venue_matches WHERE city IS NOT NULL) AS city,
-                    (SELECT COUNT(*) FROM venue_matches) AS total_matches,
-                    COALESCE(
-                        ROUND(
-                            AVG(innings_score) FILTER ({first_inning_filter}),
-                            2
+                    match_id,
+                    venue,
+                    city
+                FROM clean_matches m
+                WHERE LOWER(m.venue) = LOWER(?)
+                   OR m.venue ILIKE ? ESCAPE '\\'
+            ),
+            innings_totals AS (
+                SELECT
+                    vm.match_id,
+                    d.innings AS inning_id,
+                    COALESCE(SUM(d.total_runs), 0) AS innings_score,
+                    MAX(d.over_number) AS max_over,
+                    COUNT(*) FILTER (WHERE d.is_wicket = TRUE) AS wickets_lost
+                FROM venue_matches vm
+                JOIN clean_deliveries d ON vm.match_id = d.match_id
+                WHERE COALESCE(d.is_super_over, 0) = 0
+                GROUP BY vm.match_id, d.innings
+            )
+            SELECT
+                (SELECT MODE(venue) FROM venue_matches) AS venue,
+                (SELECT MODE(city) FROM venue_matches WHERE city IS NOT NULL) AS city,
+                (SELECT COUNT(*) FROM venue_matches) AS total_matches,
+                COALESCE(
+                    ROUND(
+                        AVG(innings_score) FILTER (
+                            WHERE inning_id = 1
+                              AND (max_over >= 19 OR wickets_lost >= 10)
                         ),
-                        0.0
-                    ) AS avg_first_innings_score,
-                    COALESCE(MAX(innings_score), 0) AS highest_total
-                FROM innings_totals
-            """
-            return self._fetch_dicts(self.con.execute(query, [param]))
-
-        # 1. Try exact case-insensitive venue match first
-        rows = _run_venue_query("LOWER(m.venue) = LOWER(?)", clean_venue)
-
-        # 2. Fallback to substring match (e.g., "wankhede" -> "Wankhede Stadium")
-        if not rows or rows[0]["total_matches"] == 0:
-            escaped = (
-                clean_venue.replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_")
-            )
-            rows = _run_venue_query(
-                "m.venue ILIKE ? ESCAPE '\\'", f"%{escaped}%"
-            )
+                        2
+                    ),
+                    0.0
+                ) AS avg_first_innings_score,
+                COALESCE(MAX(innings_score), 0) AS highest_total
+            FROM innings_totals
+        """
+        escaped = (
+            clean_venue.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        rows = self._fetch_dicts(self.con.execute(query, [clean_venue, f"%{escaped}%"]))
 
         if not rows or rows[0]["total_matches"] == 0:
             return None
@@ -217,15 +192,18 @@ class AnalyticsRepository:
         return VenueStatsResponse.model_validate(rows[0])
 
     def get_orange_cap(
-        self, season: Optional[int] = None, limit: int = 10
+        self, season: int | None = None, limit: int = 10
     ) -> list[PlayerBattingStats]:
-        """Return top run-scorers (all-time or filtered by season)."""
+        """Return top run-scorers adhering to official IPL rules.
+
+        Excludes super overs and wides from balls faced.
+        """
         safe_limit = min(max(1, limit), 100)
 
         season_clause = ""
         params: list[Any] = []
         if season is not None:
-            season_clause = "WHERE CAST(m.season AS INTEGER) = ?"
+            season_clause = "AND CAST(m.season AS INTEGER) = ?"
             params.append(season)
 
         query = f"""
@@ -242,20 +220,22 @@ class AnalyticsRepository:
                 COALESCE(p.player_name, d.batter) AS player_name,
                 COUNT(DISTINCT d.match_id) AS matches_played,
                 COALESCE(SUM(d.batter_runs), 0) AS total_runs,
-                COUNT(*) AS balls_faced,
+                COUNT(*) FILTER (WHERE COALESCE(d.wides, 0) = 0) AS balls_faced,
                 COALESCE(
                     ROUND(
-                        (SUM(d.batter_runs) * 100.0) / NULLIF(COUNT(*), 0),
+                        (SUM(d.batter_runs) * 100.0)
+                        / NULLIF(COUNT(*) FILTER (WHERE COALESCE(d.wides, 0) = 0), 0),
                         2
                     ),
                     0.0
                 ) AS strike_rate,
-                COUNT(*) FILTER (WHERE d.batter_runs = 4) AS fours,
-                COUNT(*) FILTER (WHERE d.batter_runs = 6) AS sixes
+                COUNT(*) FILTER (WHERE d.batter_runs = 4 AND d.is_boundary = TRUE) AS fours,
+                COUNT(*) FILTER (WHERE d.batter_runs = 6 AND d.is_boundary = TRUE) AS sixes
             FROM clean_deliveries d
             JOIN clean_matches m ON d.match_id = m.match_id
             LEFT JOIN dedup_players p ON LOWER(d.batter) = p.name_key
-            {season_clause}
+            WHERE COALESCE(d.is_super_over, 0) = 0
+              {season_clause}
             GROUP BY d.batter, p.player_id, p.player_name
             ORDER BY total_runs DESC, strike_rate DESC, balls_faced ASC
             LIMIT ?
@@ -265,22 +245,15 @@ class AnalyticsRepository:
         return [PlayerBattingStats.model_validate(row) for row in rows]
 
     def get_purple_cap(
-        self, season: Optional[int] = None, limit: int = 10
+        self, season: int | None = None, limit: int = 10
     ) -> list[PlayerBowlingStats]:
-        """Return top wicket-takers (all-time or filtered by season) using is_wicket."""
+        """Return top wicket-takers adhering to official bowler rules and excluding super overs."""
         safe_limit = min(max(1, limit), 100)
-
-        if "total_runs" in self._delivery_cols:
-            runs_conceded_expr = "d.total_runs"
-        elif "extra_runs" in self._delivery_cols:
-            runs_conceded_expr = "(d.batter_runs + COALESCE(d.extra_runs, 0))"
-        else:
-            runs_conceded_expr = "d.batter_runs"
 
         season_clause = ""
         params: list[Any] = []
         if season is not None:
-            season_clause = "WHERE CAST(m.season AS INTEGER) = ?"
+            season_clause = "AND CAST(m.season AS INTEGER) = ?"
             params.append(season)
 
         query = f"""
@@ -320,7 +293,8 @@ class AnalyticsRepository:
                 FROM clean_deliveries d
                 JOIN clean_matches m ON d.match_id = m.match_id
                 LEFT JOIN dedup_players p ON LOWER(d.bowler) = p.name_key
-                {season_clause}
+                WHERE COALESCE(d.is_super_over, 0) = 0
+                  {season_clause}
                 GROUP BY d.bowler, p.player_id, p.player_name
             )
             SELECT
@@ -328,7 +302,7 @@ class AnalyticsRepository:
                 player_name,
                 wickets,
                 balls_bowled,
-                ROUND(balls_bowled / 6.0, 2) AS overs_bowled,
+                (balls_bowled // 6) + ((balls_bowled % 6) / 10.0) AS overs_bowled,
                 runs_conceded,
                 COALESCE(
                     ROUND((runs_conceded * 6.0) / NULLIF(balls_bowled, 0), 2),
@@ -341,4 +315,3 @@ class AnalyticsRepository:
         params.append(safe_limit)
         rows = self._fetch_dicts(self.con.execute(query, params))
         return [PlayerBowlingStats.model_validate(row) for row in rows]
-    

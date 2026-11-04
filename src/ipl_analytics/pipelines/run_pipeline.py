@@ -25,7 +25,9 @@ def main():
     print("[Load] Ingesting tables into DuckDB and exporting Parquet files...")
     load_data(raw_data, clean_data, export_parquet=True)
 
-    print("[Pipeline] Pipeline executed successfully! Both raw_* and clean_* datasets are ready.")
+    print(
+        "[Pipeline] Pipeline executed successfully! Both raw_* and clean_* datasets are ready."
+    )
 
 
 if __name__ == "__main__":

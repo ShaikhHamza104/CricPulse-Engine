@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from ipl_analytics.api.v1.endpoints import analytics, matches, players
 
 api_router = APIRouter()

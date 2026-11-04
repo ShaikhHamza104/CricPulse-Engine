@@ -1,5 +1,7 @@
 from pathlib import Path
+
 import pandas as pd
+
 from ipl_analytics.db.session import get_connection
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -34,37 +36,67 @@ def load_data(
         con.register("clean_players_view", clean_players_df)
 
         # Create Bronze (Raw) Tables
-        con.execute("CREATE OR REPLACE TABLE raw_matches AS SELECT * FROM raw_matches_view")
-        con.execute("CREATE OR REPLACE TABLE raw_deliveries AS SELECT * FROM raw_deliveries_view")
-        con.execute("CREATE OR REPLACE TABLE raw_players AS SELECT * FROM raw_players_view")
+        con.execute(
+            "CREATE OR REPLACE TABLE raw_matches AS SELECT * FROM raw_matches_view"
+        )
+        con.execute(
+            "CREATE OR REPLACE TABLE raw_deliveries AS SELECT * FROM raw_deliveries_view"
+        )
+        con.execute(
+            "CREATE OR REPLACE TABLE raw_players AS SELECT * FROM raw_players_view"
+        )
 
         # Create Silver (Clean) Tables
-        con.execute("CREATE OR REPLACE TABLE clean_matches AS SELECT * FROM clean_matches_view")
-        con.execute("CREATE OR REPLACE TABLE clean_deliveries AS SELECT * FROM clean_deliveries_view")
-        con.execute("CREATE OR REPLACE TABLE clean_players AS SELECT * FROM clean_players_view")
+        con.execute(
+            "CREATE OR REPLACE TABLE clean_matches AS SELECT * FROM clean_matches_view"
+        )
+        con.execute(
+            "CREATE OR REPLACE TABLE clean_deliveries AS SELECT * FROM clean_deliveries_view"
+        )
+        con.execute(
+            "CREATE OR REPLACE TABLE clean_players AS SELECT * FROM clean_players_view"
+        )
 
         # Create/Replace standard aliases pointing to clean data
-        con.execute("CREATE OR REPLACE TABLE matches AS SELECT * FROM clean_matches_view")
-        con.execute("CREATE OR REPLACE TABLE deliveries AS SELECT * FROM clean_deliveries_view")
-        con.execute("CREATE OR REPLACE TABLE players AS SELECT * FROM clean_players_view")
+        con.execute(
+            "CREATE OR REPLACE TABLE matches AS SELECT * FROM clean_matches_view"
+        )
+        con.execute(
+            "CREATE OR REPLACE TABLE deliveries AS SELECT * FROM clean_deliveries_view"
+        )
+        con.execute(
+            "CREATE OR REPLACE TABLE players AS SELECT * FROM clean_players_view"
+        )
 
-        print("Successfully loaded Bronze (raw_*) and Silver (clean_*) tables into DuckDB!")
+        print(
+            "Successfully loaded Bronze (raw_*) and Silver (clean_*) tables into DuckDB!"
+        )
 
     # 2. Export Parquet files for fast disk access
     if export_parquet:
         # Clean Parquet files
-        clean_matches_df.to_parquet(PROCESSED_DIR / "clean_matches.parquet", index=False)
-        clean_deliveries_df.to_parquet(PROCESSED_DIR / "clean_deliveries.parquet", index=False)
-        clean_players_df.to_parquet(PROCESSED_DIR / "clean_players.parquet", index=False)
+        clean_matches_df.to_parquet(
+            PROCESSED_DIR / "clean_matches.parquet", index=False
+        )
+        clean_deliveries_df.to_parquet(
+            PROCESSED_DIR / "clean_deliveries.parquet", index=False
+        )
+        clean_players_df.to_parquet(
+            PROCESSED_DIR / "clean_players.parquet", index=False
+        )
 
         # Canonical aliases (matches.parquet, deliveries.parquet, players.parquet)
         clean_matches_df.to_parquet(PROCESSED_DIR / "matches.parquet", index=False)
-        clean_deliveries_df.to_parquet(PROCESSED_DIR / "deliveries.parquet", index=False)
+        clean_deliveries_df.to_parquet(
+            PROCESSED_DIR / "deliveries.parquet", index=False
+        )
         clean_players_df.to_parquet(PROCESSED_DIR / "players.parquet", index=False)
 
         # Raw Parquet files
         raw_matches_df.to_parquet(PROCESSED_DIR / "raw_matches.parquet", index=False)
-        raw_deliveries_df.to_parquet(PROCESSED_DIR / "raw_deliveries.parquet", index=False)
+        raw_deliveries_df.to_parquet(
+            PROCESSED_DIR / "raw_deliveries.parquet", index=False
+        )
         raw_players_df.to_parquet(PROCESSED_DIR / "raw_players.parquet", index=False)
 
         print(f"Successfully exported clean and raw Parquet files to {PROCESSED_DIR}!")

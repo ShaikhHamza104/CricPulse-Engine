@@ -1,6 +1,9 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 from ipl_analytics.core.utils import read_parquet_file
+
 
 def explore_data(
     data: pd.DataFrame | str | Path,
@@ -31,16 +34,9 @@ def explore_data(
     str_cols = df.select_dtypes(include=["object", "string"])
     for col in str_cols.columns:
         df[col] = df[col].str.lower()
-    missing_values = (
-        df.isna()
-        .sum()
-        .rename("missing_count")
-        .to_frame()
-    )
+    missing_values = df.isna().sum().rename("missing_count").to_frame()
     missing_values["missing_percentage"] = (
-        (missing_values["missing_count"] / len(df) * 100)
-        if len(df) > 0
-        else 0.0
+        (missing_values["missing_count"] / len(df) * 100) if len(df) > 0 else 0.0
     )
 
     column_details = pd.DataFrame(
@@ -58,7 +54,9 @@ def explore_data(
     )
     categorical_cols = df.select_dtypes(include=["object", "category", "string"])
     categorical_summary = (
-        categorical_cols.describe().T if not categorical_cols.columns.empty else pd.DataFrame()
+        categorical_cols.describe().T
+        if not categorical_cols.columns.empty
+        else pd.DataFrame()
     )
 
     return {

@@ -21,15 +21,9 @@ def read_tables_from_duckdb() -> tuple[
     pd.DataFrame,
 ]:
     with duckdb.connect(database=str(DB_PATH), read_only=True) as connection:
-        matches_df = connection.execute(
-            "SELECT * FROM matches"
-        ).df()
-        deliveries_df = connection.execute(
-            "SELECT * FROM deliveries"
-        ).df()
-        players_df = connection.execute(
-            "SELECT * FROM players"
-        ).df()
+        matches_df = connection.execute("SELECT * FROM matches").df()
+        deliveries_df = connection.execute("SELECT * FROM deliveries").df()
+        players_df = connection.execute("SELECT * FROM players").df()
 
     return matches_df, deliveries_df, players_df
 

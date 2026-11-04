@@ -7,9 +7,9 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     from pathlib import Path
+
     import duckdb
     import marimo as mo
-    import numpy as np
     import pandas as pd
 
     return Path, duckdb, mo, pd
@@ -25,7 +25,6 @@ def _(mo):
 
     ---
     """)
-    return
 
 
 @app.cell
@@ -57,22 +56,25 @@ def _(deliveries_df, matches_df, mo, players_df):
     * **Players:** `{len(players_df):,}` rows
     ---
     """)
-    return
 
 
 @app.cell
 def _(deliveries_df, matches_df, mo):
     # Test 1: Referential Integrity (Every delivery must belong to an existing match)
     match_ids_in_matches = set(matches_df["match_id"])
-    orphan_deliveries = deliveries_df[~deliveries_df["match_id"].isin(match_ids_in_matches)]
+    orphan_deliveries = deliveries_df[
+        ~deliveries_df["match_id"].isin(match_ids_in_matches)
+    ]
     ref_integrity_passed = len(orphan_deliveries) == 0
 
-    print("Referential Integrity Check:", "PASSED" if ref_integrity_passed else "FAILED")
+    print(
+        "Referential Integrity Check:", "PASSED" if ref_integrity_passed else "FAILED"
+    )
     print(f"Orphan Deliveries Found: {len(orphan_deliveries)}")
 
     t1 = mo.md(f"""
     #### Test 1: Referential Integrity Check
-    * **Status:** {'✅ PASSED' if ref_integrity_passed else '❌ FAILED'}
+    * **Status:** {"✅ PASSED" if ref_integrity_passed else "❌ FAILED"}
     * **Orphan Deliveries Found:** `{len(orphan_deliveries)}`
     """)
     return (ref_integrity_passed,)
@@ -85,15 +87,18 @@ def _(matches_df, mo):
     null_counts = matches_df[essential_cols].isna().sum()
     null_checks_passed = null_counts.sum() == 0
 
-    print("Null Checks on Essential Columns:", "PASSED" if null_checks_passed else "FAILED")
+    print(
+        "Null Checks on Essential Columns:",
+        "PASSED" if null_checks_passed else "FAILED",
+    )
     print("Null Counts:\n", null_counts)
 
     t2 = mo.md(f"""
     #### Test 2: Critical Null Checks (Matches)
-    * **Status:** {'✅ PASSED' if null_checks_passed else '❌ FAILED'}
-    * **Missing Cities:** `{matches_df['city'].isna().sum()}`
-    * **Missing Dates:** `{matches_df['date'].isna().sum()}`
-    * **Missing Teams:** `{matches_df[['team1', 'team2']].isna().sum().sum()}`
+    * **Status:** {"✅ PASSED" if null_checks_passed else "❌ FAILED"}
+    * **Missing Cities:** `{matches_df["city"].isna().sum()}`
+    * **Missing Dates:** `{matches_df["date"].isna().sum()}`
+    * **Missing Teams:** `{matches_df[["team1", "team2"]].isna().sum().sum()}`
     """)
     return (null_checks_passed,)
 
@@ -102,16 +107,20 @@ def _(matches_df, mo):
 def _(deliveries_df, mo):
     # Test 3: Delivery Run Consistency (total_runs == batter_runs + extra_runs)
     mismatched_runs = deliveries_df[
-        deliveries_df["total_runs"] != (deliveries_df["batter_runs"] + deliveries_df["extra_runs"])
+        deliveries_df["total_runs"]
+        != (deliveries_df["batter_runs"] + deliveries_df["extra_runs"])
     ]
     runs_consistency_passed = len(mismatched_runs) == 0
 
-    print("Delivery Run Consistency Check:", "PASSED" if runs_consistency_passed else "FAILED")
+    print(
+        "Delivery Run Consistency Check:",
+        "PASSED" if runs_consistency_passed else "FAILED",
+    )
     print(f"Mismatched Deliveries Found: {len(mismatched_runs)}")
 
     t3 = mo.md(f"""
     #### Test 3: Run Mathematics Consistency Check
-    * **Status:** {'✅ PASSED' if runs_consistency_passed else '❌ FAILED'}
+    * **Status:** {"✅ PASSED" if runs_consistency_passed else "❌ FAILED"}
     * **Mismatched Deliveries:** `{len(mismatched_runs)}`
     """)
     return (runs_consistency_passed,)
@@ -130,7 +139,7 @@ def _(deliveries_df, mo):
 
     t4 = mo.md(f"""
     #### Test 4: Over Number Range Check (0 to 19)
-    * **Status:** {'✅ PASSED' if overs_range_passed else '❌ FAILED'}
+    * **Status:** {"✅ PASSED" if overs_range_passed else "❌ FAILED"}
     * **Deliveries with Out-of-Range Overs:** `{len(invalid_overs)}`
     """)
     return (overs_range_passed,)
@@ -143,7 +152,8 @@ def _(deliveries_df, mo):
     if has_wickets:
         wickets_count = deliveries_df["is_wicket"].sum()
         invalid_wickets = deliveries_df[
-            (deliveries_df["is_wicket"] == True) & (deliveries_df["dismissal_kind"].isna())
+            deliveries_df["is_wicket"]
+            & (deliveries_df["dismissal_kind"].isna())
         ]
         wickets_integrity_passed = len(invalid_wickets) == 0
     else:
@@ -151,12 +161,14 @@ def _(deliveries_df, mo):
         invalid_wickets = []
         wickets_integrity_passed = False
 
-    print("Wickets Integrity Check:", "PASSED" if wickets_integrity_passed else "FAILED")
+    print(
+        "Wickets Integrity Check:", "PASSED" if wickets_integrity_passed else "FAILED"
+    )
     print(f"Total Wickets Verified: {wickets_count:,}")
 
     t5 = mo.md(f"""
     #### Test 5: Wickets Consistency Check
-    * **Status:** {'✅ PASSED' if wickets_integrity_passed else '❌ FAILED'}
+    * **Status:** {"✅ PASSED" if wickets_integrity_passed else "❌ FAILED"}
     * **Total Dismissals Verified:** `{wickets_count:,}`
     * **Invalid Wicket Records:** `{len(invalid_wickets)}`
     """)
@@ -172,18 +184,20 @@ def _(
     runs_consistency_passed,
     wickets_integrity_passed,
 ):
-    all_passed = all([
-        ref_integrity_passed,
-        null_checks_passed,
-        runs_consistency_passed,
-        overs_range_passed,
-        wickets_integrity_passed,
-    ])
+    all_passed = all(
+        [
+            ref_integrity_passed,
+            null_checks_passed,
+            runs_consistency_passed,
+            overs_range_passed,
+            wickets_integrity_passed,
+        ]
+    )
     print("Overall Data Quality Status:", "PASSED" if all_passed else "FAILED")
 
     final_card = mo.md(f"""
     ---
-    ### 🏆 Overall Validation Result: {'✅ ALL 5 TESTS PASSED — READY FOR DUCKDB & PARQUET EXPORT' if all_passed else '❌ VALIDATION FAILED'}
+    ### 🏆 Overall Validation Result: {"✅ ALL 5 TESTS PASSED — READY FOR DUCKDB & PARQUET EXPORT" if all_passed else "❌ VALIDATION FAILED"}
     """)
     return (all_passed,)
 
@@ -208,18 +222,32 @@ def _(
             con.register("validated_players", players_df)
 
             # Update clean tables
-            con.execute("CREATE OR REPLACE TABLE clean_matches AS SELECT * FROM validated_matches")
-            con.execute("CREATE OR REPLACE TABLE clean_deliveries AS SELECT * FROM validated_deliveries")
-            con.execute("CREATE OR REPLACE TABLE clean_players AS SELECT * FROM validated_players")
+            con.execute(
+                "CREATE OR REPLACE TABLE clean_matches AS SELECT * FROM validated_matches"
+            )
+            con.execute(
+                "CREATE OR REPLACE TABLE clean_deliveries AS SELECT * FROM validated_deliveries"
+            )
+            con.execute(
+                "CREATE OR REPLACE TABLE clean_players AS SELECT * FROM validated_players"
+            )
 
             # Update canonical aliases
-            con.execute("CREATE OR REPLACE TABLE matches AS SELECT * FROM validated_matches")
-            con.execute("CREATE OR REPLACE TABLE deliveries AS SELECT * FROM validated_deliveries")
-            con.execute("CREATE OR REPLACE TABLE players AS SELECT * FROM validated_players")
+            con.execute(
+                "CREATE OR REPLACE TABLE matches AS SELECT * FROM validated_matches"
+            )
+            con.execute(
+                "CREATE OR REPLACE TABLE deliveries AS SELECT * FROM validated_deliveries"
+            )
+            con.execute(
+                "CREATE OR REPLACE TABLE players AS SELECT * FROM validated_players"
+            )
 
         # 2. Export validated clean Parquet files to disk
         matches_df.to_parquet(PROCESSED_DIR / "clean_matches.parquet", index=False)
-        deliveries_df.to_parquet(PROCESSED_DIR / "clean_deliveries.parquet", index=False)
+        deliveries_df.to_parquet(
+            PROCESSED_DIR / "clean_deliveries.parquet", index=False
+        )
         players_df.to_parquet(PROCESSED_DIR / "clean_players.parquet", index=False)
 
         # 3. Keep canonical alias Parquet files in sync
@@ -227,7 +255,9 @@ def _(
         deliveries_df.to_parquet(PROCESSED_DIR / "deliveries.parquet", index=False)
         players_df.to_parquet(PROCESSED_DIR / "players.parquet", index=False)
 
-        print(f"Successfully saved validated tables to DuckDB ({db_path}) and exported all clean Parquet files!")
+        print(
+            f"Successfully saved validated tables to DuckDB ({db_path}) and exported all clean Parquet files!"
+        )
 
         save_msg = mo.md(f"""
         ---
@@ -235,7 +265,7 @@ def _(
         All 5 automated quality tests passed. Data has been safely written:
         * **DuckDB Database (`{db_path.name}`)**:
           * `clean_matches` & `matches`: `{len(matches_df):,}` rows | `{matches_df.shape[1]}` columns
-          * `clean_deliveries` & `deliveries`: `{len(deliveries_df):,}` rows | `{deliveries_df.shape[1]}` columns (with `{deliveries_df['is_wicket'].sum():,}` dismissals)
+          * `clean_deliveries` & `deliveries`: `{len(deliveries_df):,}` rows | `{deliveries_df.shape[1]}` columns (with `{deliveries_df["is_wicket"].sum():,}` dismissals)
           * `clean_players` & `players`: `{len(players_df):,}` rows
         * **Parquet Files Exported**:
           * `clean_matches.parquet` & `matches.parquet`
@@ -245,8 +275,9 @@ def _(
         *Everything is in sync, verified, and completely unbreakable!*
         """)
     else:
-        save_msg = mo.md("### ❌ Validation Failed: Aborted database & parquet update to preserve data integrity.")
-    return
+        save_msg = mo.md(
+            "### ❌ Validation Failed: Aborted database & parquet update to preserve data integrity."
+        )
 
 
 if __name__ == "__main__":

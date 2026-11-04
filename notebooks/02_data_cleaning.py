@@ -7,6 +7,7 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     from pathlib import Path
+
     import marimo as mo
     import numpy as np
     import pandas as pd
@@ -36,7 +37,6 @@ def _(mo):
     * **Official League Source:** [IPL Official Website & Match Stats (iplt20.com)](https://www.iplt20.com/stats/)
     * **Secondary Validation Portal:** [ESPN Cricinfo IPL Series Archive](https://www.espncricinfo.com/series/indian-premier-league)
     """)
-    return
 
 
 @app.cell(hide_code=True)
@@ -102,7 +102,6 @@ def _(mo):
     | `player_id` | `string` | No | Cricsheet / People Registry unique hash ID. | `b0512837` |
     | `player_name` | `string` | No | Normalized player full name (lowercased). | `v kohli`, `ms dhoni` |
     """)
-    return
 
 
 @app.cell
@@ -130,12 +129,11 @@ def _(deliveries_df, matches_df, mo, players_df):
         rf"""
         ---
         ### 📊 Ingested Clean Dataset Statistics
-        * **`matches_df`**: `{len(matches_df):,}` rows | `{matches_df.shape[1]}` columns | Memory: `{round(matches_df.memory_usage(deep=True).sum()/1024**2, 2)}` MB
-        * **`deliveries_df`**: `{len(deliveries_df):,}` rows | `{deliveries_df.shape[1]}` columns | Memory: `{round(deliveries_df.memory_usage(deep=True).sum()/1024**2, 2)}` MB
-        * **`players_df`**: `{len(players_df):,}` rows | `{players_df.shape[1]}` columns | Memory: `{round(players_df.memory_usage(deep=True).sum()/1024**2, 2)}` MB
+        * **`matches_df`**: `{len(matches_df):,}` rows | `{matches_df.shape[1]}` columns | Memory: `{round(matches_df.memory_usage(deep=True).sum() / 1024**2, 2)}` MB
+        * **`deliveries_df`**: `{len(deliveries_df):,}` rows | `{deliveries_df.shape[1]}` columns | Memory: `{round(deliveries_df.memory_usage(deep=True).sum() / 1024**2, 2)}` MB
+        * **`players_df`**: `{len(players_df):,}` rows | `{players_df.shape[1]}` columns | Memory: `{round(players_df.memory_usage(deep=True).sum() / 1024**2, 2)}` MB
         """
     )
-    return
 
 
 @app.cell(hide_code=True)
@@ -152,7 +150,6 @@ def _(mo):
        * `royal challengers bangalore` ➔ `royal challengers bengaluru`
     3. **Outcome Normalization**: Explicitly flag abandoned matches (`outcome = 'no result'`).
     """)
-    return
 
 
 @app.cell
@@ -166,7 +163,6 @@ def _(matches_df):
     matches_df["city"] = matches_df["city"].fillna(
         matches_df["venue"].map(venue_city_map)
     )
-    return
 
 
 @app.cell
@@ -186,7 +182,6 @@ def _(deliveries_df, matches_df):
 
     # Apply to deliveries
     deliveries_df["batting_team"] = deliveries_df["batting_team"].replace(team_mapping)
-    return
 
 
 @app.cell
@@ -194,7 +189,6 @@ def _(matches_df, pd):
     matches_df["outcome_status"] = matches_df["winner"].apply(
         lambda w: "no_result" if pd.isna(w) else "completed"
     )
-    return
 
 
 @app.cell
@@ -207,10 +201,10 @@ def _(PROCESSED_DIR, deliveries_df, matches_df, mo, players_df):
     save_status = mo.md(f"""
     ---
     ### ✅ All Cleaned Datasets Successfully Saved!
-    * **`clean_matches.parquet`**: `{len(matches_df):,}` rows | `{matches_df.shape[1]}` columns (Missing cities: `{matches_df['city'].isna().sum()}`)
+    * **`clean_matches.parquet`**: `{len(matches_df):,}` rows | `{matches_df.shape[1]}` columns (Missing cities: `{matches_df["city"].isna().sum()}`)
     * **`clean_deliveries.parquet`**: `{len(deliveries_df):,}` rows | `{deliveries_df.shape[1]}` columns (Harmonized team names & wicket metrics)
     * **`clean_players.parquet`**: `{len(players_df):,}` rows | `{players_df.shape[1]}` columns
-    
+
     *Ready for validation in `03_data_validation.py`!*
     """)
     return (save_status,)
