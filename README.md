@@ -1,6 +1,8 @@
 # 🏏 CricPulse-Engine — High-Performance IPL Analytics API
 
 > **A production-ready analytical engine and REST API for historical Indian Premier League (IPL) data, powered by DuckDB, Apache Parquet, and FastAPI with defense-in-depth security middlewares and 92 automated tests.**
+> 
+> 🌐 **Live Production API:** [https://cricpulse-engine.onrender.com](https://cricpulse-engine.onrender.com) | 📚 **Interactive Swagger Docs:** [https://cricpulse-engine.onrender.com/docs](https://cricpulse-engine.onrender.com/docs)
 
 [![Python](https://img.shields.io/badge/Python-3.13-blue.svg?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -70,7 +72,8 @@ CricPulse-Engine implements a modern **Medallion Data Architecture** (Bronze/Sil
 
 ## 🧭 API Endpoints Catalog
 
-Interactive Swagger UI documentation is available at `http://localhost:8000/docs`.
+Interactive Swagger UI documentation is available live at:
+👉 **[https://cricpulse-engine.onrender.com/docs](https://cricpulse-engine.onrender.com/docs)** *(or locally at `http://localhost:8000/docs`)*.
 
 ### 1. Matches (`/api/v1/matches`)
 * `GET /api/v1/matches` — Paginated match summaries with filtering by season, team alias, venue, and city.
